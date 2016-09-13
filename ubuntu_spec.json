@@ -1,0 +1,8 @@
+{
+  "ImageId": "ami-26c43149",
+  "KeyName": "default_carbon",
+  "InstanceType": "g2.2xlarge",
+  "Placement": {
+    "AvailabilityZone": "eu-central-1b"
+  }
+}
