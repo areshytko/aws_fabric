@@ -1,4 +1,6 @@
 {
+  "hosts_file" : "hosts.txt",
+  "user" : "ubuntu",
   "aws_region" : "eu-central-1",
   "availability_zone" : "eu-central-1b"
 }

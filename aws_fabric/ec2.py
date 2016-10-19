@@ -6,6 +6,7 @@ from fabric.context_managers import settings, hide
 import datetime
 import math
 import logging
+import os.path
 
 
 # @TODO add attach-volume
@@ -39,12 +40,27 @@ def up(spec='specification.json', bid=None):
     """
 
     instances = up_spot(spec, bid) if bid else up_on_demand(spec)
+    hosts = [{'ip': i.public_ip, 'id': i.instance_id, 'type': 'ec2'} for i in instances]
+
+    if os.path.exists(env.hosts_file):
+        with open(env.hosts_file, 'r') as hosts_file:
+            hosts += json.load(hosts_file)
+
+    with open(env.hosts_file, 'w') as hosts_file:
+        json.dump(hosts, hosts_file)
+
+    env.hosts += [instance.public_ip for instance in instances]
 
 
 @task
 @runs_once
 def terminate(*ids):
     env.ec2.terminate_instances(InstanceIds=ids)
+    hosts = []
+    with open(env.hosts_file, 'r') as hosts_file:
+        hosts = json.load(hosts_file)
+    with open(env.hosts_file, 'w') as hosts_file:
+        json.dump(filter(lambda h: h['id'] not in ids, hosts), hosts_file)
 
 
 @task
@@ -159,7 +175,7 @@ def up_spot(spec, bid):
     for resp in request_repsonses:
         logging.info(resp)
 
-    wait_for_spot_instances([req.request_id for req in request_repsonses])
+    return wait_for_spot_instances([req.request_id for req in request_repsonses])
 
 
 def up_on_demand(spec):
@@ -173,8 +189,9 @@ def get_spec(spec_file):
 
 def wait_for_spot_instances(request_ids):
     instance_ids = get_request_state(request_ids)
-    ips = get_instance_status(instance_ids)
-    get_instance_ssh_status(ips)
+    instances = get_instance_status(instance_ids)
+    get_instance_ssh_status([instance.public_ip for instance in instances])
+    return instances
 
 
 @with_retry(1)
@@ -200,7 +217,7 @@ def get_instance_status(instance_ids):
         logging.info(resp)
         if resp.state != 'running' or not resp.public_ip:
             raise Exception("Instance isn't running yet")
-    return [resp.public_ip for resp in request_responses]
+    return request_responses
 
 
 @with_retry(1)
