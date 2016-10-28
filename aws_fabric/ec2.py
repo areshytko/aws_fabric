@@ -6,7 +6,6 @@ from fabric.context_managers import settings, hide
 import datetime
 import math
 import logging
-import os.path
 
 
 # @TODO add attach-volume
@@ -40,27 +39,18 @@ def up(spec='specification.json', bid=None):
     """
 
     instances = up_spot(spec, bid) if bid else up_on_demand(spec)
-    hosts = [{'ip': i.public_ip, 'id': i.instance_id, 'type': 'ec2'} for i in instances]
-
-    if os.path.exists(env.hosts_file):
-        with open(env.hosts_file, 'r') as hosts_file:
-            hosts += json.load(hosts_file)
-
-    with open(env.hosts_file, 'w') as hosts_file:
-        json.dump(hosts, hosts_file)
-
-    env.hosts += [instance.public_ip for instance in instances]
+    env.hosts_cache.add_ec2_instances(instances)
+    env.hosts_cache.dump()
+    env.hosts = env.hosts_cache.get_ips()
 
 
 @task
 @runs_once
 def terminate(*ids):
     env.ec2.terminate_instances(InstanceIds=ids)
-    hosts = []
-    with open(env.hosts_file, 'r') as hosts_file:
-        hosts = json.load(hosts_file)
-    with open(env.hosts_file, 'w') as hosts_file:
-        json.dump(filter(lambda h: h['id'] not in ids, hosts), hosts_file)
+    env.hosts_cache.remove_ec2_instances(ids)
+    env.hosts_cache.dump()
+    env.hosts = env.hosts_cache.get_ips()
 
 
 @task

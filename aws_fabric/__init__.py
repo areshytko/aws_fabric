@@ -4,6 +4,7 @@ import boto3
 import logging
 import json
 from fabric.api import *
+import hosts
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,8 +17,10 @@ with open('config.json', 'r') as cf:
 
 env.ec2 = boto3.client('ec2', region_name=env.region)
 
-if os.path.isfile(env.hosts_file):
-    with open(env.hosts_file, 'r') as hosts_file:
-        env.hosts = [i['ip'] for i in json.load(hosts_file)]
+env.hosts_cache = hosts.Hosts(env.hosts_file)
+ips = env.hosts_cache.get_ips()
+if ips:
+    env.hosts = ips
+
 
 __all__ = ['ec2', 'common']
